@@ -13,30 +13,33 @@ import (
 )
 
 var (
+	// TriggerParams byte array
 	TriggerParams []byte
-	Params        string
-	Data          map[string]interface{}
+	// Params string
+	Params string
+	// Data interface map
+	Data map[string]interface{}
 )
 
 func main() {
 	var request concourse.OutRequest
 
 	concourse.ReadRequest(&request)
+	tr := &http.Transport{}
+	if request.Source.X509Cert != "" {
+		cert, err := tls.X509KeyPair([]byte(request.Source.X509Cert), []byte(request.Source.X509Key))
+		if err != nil {
+			concourse.Fatal("Error reading X509 key pair: \n%v\n", err)
+		}
 
-	cert, err := tls.X509KeyPair([]byte(request.Source.X509Cert), []byte(request.Source.X509Key))
-	if err != nil {
-		concourse.Fatal("Error reading X509 key pair: \n%v\n", err)
-	}
+		tlsConfig := &tls.Config{
+			MinVersion:               tls.VersionTLS12,
+			PreferServerCipherSuites: true,
+			Certificates:             []tls.Certificate{cert},
+			InsecureSkipVerify:       true,
+		}
 
-	tlsConfig := &tls.Config{
-		MinVersion:               tls.VersionTLS12,
-		PreferServerCipherSuites: true,
-		Certificates:             []tls.Certificate{cert},
-		InsecureSkipVerify:       true,
-	}
-
-	tr := &http.Transport{
-		TLSClientConfig: tlsConfig,
+		tr.TLSClientConfig = tlsConfig
 	}
 
 	client := &http.Client{Transport: tr}
